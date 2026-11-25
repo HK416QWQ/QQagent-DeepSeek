@@ -1,0 +1,99 @@
+{
+  "id": "qq-card-reader",
+  "name": "卡片链接阅读",
+  "version": "1.2.1",
+  "apiVersion": 1,
+  "category": "knowledge",
+  "description": "让机器人真正看懂 QQ 里的卡片消息：群友发的小程序分享、公众号文章、音乐/视频/新闻卡片，正文里只显示一个 [卡片消息] 占位符，机器人原本只能猜。这个技能给它一个 read_card 工具，把卡片里带的链接抓回来、把标题/摘要/正文提出来，它才能聊到点子上；链接还没过期时会顺手把解析到的真实地址写回存档。B 站视频卡片会额外查公开接口，带回 UP 主、播放量、时长和封面。",
+  "author": "本机定制",
+  "entry": "index.js",
+  "enabledByDefault": true,
+  "permissions": ["web_fetch"],
+  "requires": [],
+  "capabilities": [],
+  "settings": {
+    "enabled": true,
+    "injectPrompt": true,
+    "maxChars": 6000,
+    "timeoutMs": 15000,
+    "includeCover": true,
+    "userAgent": "",
+    "blockedHosts": ""
+  },
+  "configSchema": {
+    "enabled": {
+      "type": "boolean",
+      "label": "启用卡片链接阅读",
+      "description": "总开关。关掉后模型手里不再有 read_card 工具，遇到 [卡片消息] 只能像以前一样看不见内容（不会报错，就是读不到）。",
+      "group": "总开关"
+    },
+    "injectPrompt": {
+      "type": "boolean",
+      "label": "自动注入用法说明",
+      "description": "打开时每轮都会往提示词里放一小段说明，告诉机器人「看到 [卡片消息] 该怎么做」。关掉可以省一点 token，但机器人可能想不起来用这个工具。",
+      "group": "总开关"
+    },
+    "maxChars": {
+      "type": "number",
+      "label": "正文最多给模型多少字",
+      "description": "抓回来的网页正文截断长度，默认 6000。给太多会把上下文塞满、也更容易把无关广告带进聊天；给太少可能漏掉关键信息。填 800~20000。",
+      "group": "抓取"
+    },
+    "timeoutMs": {
+      "type": "number",
+      "label": "抓取超时（毫秒）",
+      "description": "整次读取的总预算（含逐个尝试候选链接），默认 15000。有些卡片链接打开很慢，太短会误报「打不开」；太长会让机器人在群里等太久。填 3000~60000。",
+      "group": "抓取"
+    },
+    "includeCover": {
+      "type": "boolean",
+      "label": "附带 B 站视频封面",
+      "description": "打开后，读 B 站视频卡片时会把封面下载下来直接交给模型看；普通网页卡片不会附封面。模型不支持图片输入时会自动跳过，只回文字（只看主模型能力：主模型被判定不能看图时，即使另配了图片专用模型也不会带）。看一次封面会多花一点 token；如果设置里配了「图片专用模型」，这一轮还会切到它计价。关掉就只回标题/UP主/播放量等文字。",
+      "group": "B 站"
+    },
+    "userAgent": {
+      "type": "string",
+      "label": "自定义 User-Agent（留空 = 内置手机 UA）",
+      "description": "留空时对公众号/短视频这类站点自动用手机 UA（很多分享页只在手机 UA 下才给正文）。如果你的网络环境有特殊要求再改它。",
+      "group": "抓取"
+    },
+    "blockedHosts": {
+      "type": "string",
+      "label": "不抓这些域名（逗号分隔，留空 = 不限制）",
+      "description": "例如填 example.com, pan.quark.cn。命中的域名直接拒绝，返回一句人话给模型，让它自己换 web_search 或直接问群友。",
+      "group": "抓取"
+    }
+  },
+  "_note_prompt_is_dynamic": "提示词片段由 index.js 的 promptSections() 在运行时给出（这样「自动注入用法说明」开关能即时生效），这里不再写静态 prompt，避免同一段话被注入两次。",
+  "tools": [
+    {
+      "id": "read_card",
+      "name": "读取卡片消息",
+      "description": "读取 QQ 卡片消息（小程序分享、公众号文章、音乐/视频/新闻卡片）里的内容。聊天记录里只显示 [卡片消息]、看不到链接时就用它：messageId 填那条消息前面的 #数字。它会按消息 id 去协议端取回卡片的原始数据，从里面取出网址并抓回标题+正文。也会返回明确结论：卡片里根本没有网页地址（纯小程序卡片，打不开）、链接已过期、或需要登录。这时照实说读不到，不要编卡片内容。也可以只传 url 直接抓一个链接。B 站视频卡片会优先查公开接口，额外给出 UP 主、播放量、时长和封面；封面在模型支持图片输入时直接附上，只是一张视频截图，不要当成完整视频内容。",
+      "category": "knowledge",
+      "icon": "🧩",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "messageId": {
+            "type": ["integer", "string"],
+            "description": "那条卡片消息的 QQ 消息 id（聊天记录里每条消息前的 #数字，可带负号；写 #318 或 318 都行）"
+          },
+          "url": {
+            "type": "string",
+            "description": "可选：直接给一个要抓的链接。通常不用填 —— 填了 messageId 就够，工具会自己从那条消息里找链接"
+          },
+          "maxChars": {
+            "type": "integer",
+            "description": "可选：本次正文最多返回多少字（不填用设置里的默认值）"
+          },
+          "cover": {
+            "type": "boolean",
+            "description": "可选：要不要附带 B 站视频封面。想在聊天里聊画面就填 true；只想知道标题/UP主/播放量填 false，能省看图的钱。不填按设置里的默认值"
+          }
+        },
+        "required": []
+      }
+    }
+  ]
+}

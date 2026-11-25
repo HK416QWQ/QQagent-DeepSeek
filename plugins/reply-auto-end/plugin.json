@@ -1,0 +1,25 @@
+{
+  "id": "reply-auto-end",
+  "name": "省调用·发送后自动收尾",
+  "version": "1.0.1",
+  "apiVersion": 1,
+  "category": "utility",
+  "description": "机制兜底：模型在最后一条 send_message 上显式带 end:true，且本批只做了发送动作（文字/表情/戳一戳）、发送成功、结尾没有『等我/稍等』这类预告时，系统直接结束这次处理，不再多打一轮模型。关掉即退回原行为（每轮都会继续问模型要不要收尾）。",
+  "author": "本地自建",
+  "enabledByDefault": false,
+  "capabilities": ["reply.local-policy"],
+  "requires": [],
+  "settings": { "allowArrayMessages": true, "checkTrailer": true },
+  "configSchema": {
+    "allowArrayMessages": {
+      "type": "boolean",
+      "label": "分条发送也允许自动收尾",
+      "description": "默认开。send_message 传数组（分多条）且显式带 end:true 时会本地结束。关掉后只对『一次调用发一条』生效——更保险，但实测会少救 82/137 个会话（本机 58% 的发送是数组形态）。"
+    },
+    "checkTrailer": {
+      "type": "boolean",
+      "label": "检查预告式结尾",
+      "description": "默认开。结尾出现『等我』『稍等』『我看看』时不结束（即使带了 end:true），避免把『我去查一下』当成说完了。"
+    }
+  }
+}

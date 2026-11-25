@@ -1,0 +1,80 @@
+{
+  "id": "media-audio",
+  "name": "语音识别",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "category": "media",
+  "entry": "index.js",
+  "description": "把语音消息和视频音轨里说的话转成文字，交给模型。\n\n【解决什么】此前语音消息在入库时只留 [语音] 两个字符，视频音轨被 ffmpeg 主动排除，模型手里没有任何声音内容。\n\n【为什么是插件不是技能】识别是确定性工作（给音频出文本），不需要模型判断，也不需要模型知道它的存在。按约定放 plugins/，由核心按 media.transcribe 能力取用。\n\n【本地方案】sherpa-onnx + SenseVoice，非自回归。实测 60 秒音频 3.7 秒、180 秒 17.8 秒（4 线程 CPU），顺带给语种。全程不联网。",
+  "author": "QQ Agent",
+  "enabledByDefault": true,
+  "requires": [],
+  "capabilities": ["media.transcribe", "media.transcribe.available"],
+  "settings": {
+    "enabled": true,
+    "maxThreads": 4,
+    "voiceMaxSec": 60,
+    "videoMaxSec": 180,
+    "voiceBudgetMs": 8000,
+    "videoBudgetMs": 25000,
+    "useItn": true,
+    "voiceStartWaitMs": 8000,
+    "queueDeadlineMs": 60000
+  },
+  "configSchema": {
+    "enabled": {
+      "type": "boolean",
+      "label": "启用语音识别",
+      "group": "总开关",
+      "description": "总开关。关掉后语音消息只显示 [语音]、视频说明里不含音轨内容，行为与安装本插件之前完全一致。"
+    },
+    "maxThreads": {
+      "type": "number",
+      "label": "推理线程数",
+      "group": "性能",
+      "description": "默认 4。调低会更省 CPU 但更慢；机器核数少于 4 时建议设为核数。"
+    },
+    "voiceMaxSec": {
+      "type": "number",
+      "label": "语音最长处理（秒）",
+      "group": "性能",
+      "description": "默认 60（QQ 单条语音上限）。超过部分不处理，并在结果里标注已截断。"
+    },
+    "videoMaxSec": {
+      "type": "number",
+      "label": "视频音轨最长处理（秒）",
+      "group": "性能",
+      "description": "默认 180。超出部分完全丢失但会明确标注，避免让模型以为听全了。"
+    },
+    "voiceBudgetMs": {
+      "type": "number",
+      "label": "语音识别时间预算（毫秒）",
+      "group": "超时",
+      "description": "默认 8000。超时就用已识别的部分，绝不无限等 —— 入库是串行的，卡住会拖垮整个会话。实测 60 秒语音约 3.7 秒。"
+    },
+    "videoBudgetMs": {
+      "type": "number",
+      "label": "视频音轨时间预算（毫秒）",
+      "group": "超时",
+      "description": "默认 25000。视频本身就要下载和抽帧，用户预期会等，所以给得比语音宽。实测 180 秒音轨约 17.8 秒。"
+    },
+    "useItn": {
+      "type": "boolean",
+      "label": "自动加标点、规范数字",
+      "group": "识别",
+      "description": "打开后会把「二零二六年」整理成「2026 年」并补标点，可读性明显更好。"
+    },
+    "voiceStartWaitMs": {
+      "type": "number",
+      "label": "语音最多排队等多久（毫秒）",
+      "group": "超时",
+      "description": "默认 8000。轮到之前如果已经等了这么久，就不再等、直接保持 [语音] —— 一条语音等了半分钟才转出来，那个话题在群里早过去了。前一条视频正在转写时会因此放弃这一条，这是有意的取舍。"
+    },
+    "queueDeadlineMs": {
+      "type": "number",
+      "label": "语音绝对时限（毫秒）",
+      "group": "超时",
+      "description": "默认 60000。上限中的上限，防止极端积压。正常情况下 voiceStartWaitMs 会先生效（8 秒 < 60 秒），只有把它调得比 60 秒还大时这一项才有意义。"
+    }
+  }
+}

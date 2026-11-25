@@ -1,0 +1,80 @@
+{
+  "id": "forward-reader",
+  "name": "转发记录阅读器",
+  "version": "1.1.1",
+  "apiVersion": 1,
+  "category": "utility",
+  "description": "让机器人真正读懂别人转发的「合并转发聊天记录」：收到就自动展开成普通消息（含套娃转发）、长记录读全、转发里的图片也能看，再也不会回你「看不到转发内容」。拿不到的老转发会照实说明原因，不编内容。",
+  "author": "QQ Agent",
+  "enabledByDefault": true,
+  "permissions": ["web_fetch"],
+  "settings": {
+    "enabled": true,
+    "autoExpand": true,
+    "maxDepth": 2,
+    "maxNodes": 60,
+    "maxChars": 9000,
+    "maxImages": 3,
+    "showImageHint": true,
+    "onebotHttpUrl": "",
+    "onebotAccessToken": ""
+  },
+  "configSchema": {
+    "enabled": {
+      "type": "boolean",
+      "label": "启用转发记录阅读器",
+      "description": "总开关。关掉后自动展开和读转发工具一起失效。默认开。"
+    },
+    "autoExpand": {
+      "type": "boolean",
+      "label": "收到转发时自动展开",
+      "description": "默认开。别人发来合并转发的聊天记录时，机器人会在开口之前先把内容展开成普通消息再读——效果就是「你发它就能看懂」。关掉后只有机器人被明确要求读转发时才去展开。"
+    },
+    "maxDepth": {
+      "type": "number",
+      "label": "套娃展开几层",
+      "description": "转发里还套着转发时往下钻几层。默认 2（即「转发里的转发」也能看到）。填 1 = 只展开最外面一层，跟以前一样；最多 3 层。"
+    },
+    "maxNodes": {
+      "type": "number",
+      "label": "一次最多展开几条",
+      "description": "默认 60 条。超过的会被省略并在末尾注明「还有 N 条未展开」。调大更完整，但一次读太多会占上下文、也更容易超时。"
+    },
+    "maxChars": {
+      "type": "number",
+      "label": "展开文本字数上限",
+      "description": "默认 9000 字。聊天记录特别长时，到这里就停并注明剩余未展开条数。转发的聊天记录动不动就几千字，建议不要调太大。"
+    },
+    "maxImages": {
+      "type": "number",
+      "label": "一次给机器人看几张图",
+      "description": "默认 3 张。转发记录里的图片可以直接送给机器人看（视觉模型能看懂）。发太多既烧额度又拖慢回复；填 0 = 不送图（仍会在消息里提示有图，模型可以用内置的看图工具按需看）。"
+    },
+    "showImageHint": {
+      "type": "boolean",
+      "label": "告诉机器人转发里有几张图",
+      "description": "默认开。展开时会附一句「这条转发里有 N 张图片」，模型就知道该不该看图，而不是把图片当成无关紧要的占位符。"
+    },
+    "onebotHttpUrl": {
+      "type": "string",
+      "label": "协议端地址（一般不用填）",
+      "description": "留空 = 自动从程序数据目录的 config.json 里读协议端地址（默认 http://127.0.0.1:3000）。只有在自动读取失败时才需要手填。"
+    },
+    "onebotAccessToken": {
+      "type": "string",
+      "secret": true,
+      "label": "协议端 Access Token（一般不用填）",
+      "description": "留空 = 自动读取。本技能只向本机协议端发请求（读取转发内容），不会外传。填了之后留空 = 不修改。"
+    }
+  },
+  "prompt": {
+    "sections": [
+      {
+        "id": "forward-reader-guide",
+        "title": "转发记录阅读",
+        "priority": 45,
+        "content": "别人转发的【合并转发聊天记录】会由本技能**自动展开**成普通消息给你看，所以你读到的是内容本身，就像群友自己打出来的字一样正常处理，**不要回答「我看不到转发内容」「转发我打不开」这类话**。\n\n【什么时候要调 forward-reader__forward_read 工具】\n（工具列表里显示的是全名 forward-reader__forward_read —— 技能工具都带「目录名__」前缀，以工具列表里的名字为准。）\n上下文里仍然出现 `[合并转发聊天记录]`、`[转发消息 …]` 这种占位符，或者展开文本里带「…（还有 N 条未展开）」，说明上游只展开了个开头或没展开成功——这时调 forward-reader__forward_read（参数 messageId 填那条转发消息前的 #数字，缺省则是最近一条转发），它会重新展开、往下钻套娃，并把转发里的图片直接给你看。想看图片也可以用它；传错成引用消息也没关系，它会自动改读它前面最近的一条转发，并在结果开头说明改了哪条。\n\n【转发里的人，只能信昵称】\n转发记录里的**昵称**是可信的，**QQ 号不可信**——协议端会把一层转发里所有人的 QQ 号都填成同一个人（实测踩过）。所以：不要拿转发记录里的 QQ 号去 @ 人或记印象；需要准确 QQ 号时先用 get_active_members / get_recent_messages 查。转述内容时用昵称称呼即可。\n\n【拿不到内容就照实说】\n如果 forward-reader__forward_read 回复「正文协议端确实取不到」（message_id 和转发 id 两条路都试过了），意思是 QQ 侧这条转发已经没有可读正文了。**不要自己下结论，也不要只让群友重新发一条**。如实说一句「这条转发的正文我这边取不到，如果是重要内容，麻烦把文字直接贴一下」；不要编造转发内容，也不要笼统说「我打不开」。\n\n【隐私】\n转发记录里可能是别人之间的私聊截图式内容。正常回答提问就好，不要拿它去别的会话转述、也不要把里面的话算到当前群友头上。"
+      }
+    ]
+  }
+}

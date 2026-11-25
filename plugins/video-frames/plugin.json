@@ -1,0 +1,32 @@
+{
+  "id": "video-frames",
+  "name": "视频抽帧",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "category": "media",
+  "entry": "index.js",
+  "description": "把视频均匀抽成几张截图交给视觉模型看。\n\n【解决什么】read_video 有三条路线：原生视频输入（要全模态模型）、抽帧成图片、只给元信息。中间的抽帧需要有人提供 video.frames 能力 —— 此前没有任何模块实现它，所以永远退化成「只知道时长和分辨率」。本插件补上这个能力。\n\n【为什么是插件不是技能】抽帧是确定性工作（给文件就出帧），不需要模型判断。按约定放 plugins/，由核心按能力名取用；模型完全看不到它，也不会多一次调用。\n\n【实测】12.24 秒 / 1280×720 的视频抽 6 帧：0.7–0.8 秒，每帧 23–32KB，进模型约 1200 prompt token。用一次 fps 滤镜出帧，不逐帧 seek。\n\n【不依赖 ffprobe】打包只带 ffmpeg.exe，时长从 ffmpeg -i 的 stderr 解析。",
+  "author": "QQ Agent",
+  "enabledByDefault": true,
+  "requires": [],
+  "capabilities": ["video.frames", "video.frames.available", "video.sheet", "video.sheet.available"],
+  "settings": { "enabled": true, "frames": 6, "maxWidth": 640, "quality": 4, "sheetCells": 20, "sheetMaxSec": 60 },
+  "configSchema": {
+    "enabled": { "type": "boolean", "label": "启用视频抽帧", "group": "开关", "description": "总开关。关掉后 read_video 只能给你时长、分辨率这类元信息，看不到画面。" },
+    "frames": { "type": "number", "label": "默认抽几帧", "group": "抽帧", "description": "默认 6 帧（1–12）。实测 6 帧约 1200 prompt token；模型也可在调用时用 frames 临时改这一次。" },
+    "maxWidth": { "type": "number", "label": "截图长边上限（像素）", "group": "抽帧", "description": "默认 640，按长边压，避免竖屏视频出现 640×1138 这种高度翻倍、token 也翻倍的图。" },
+    "quality": { "type": "number", "label": "JPEG 质量（2 最好 ~ 31 最差）", "group": "抽帧", "description": "默认 4。调大数字体积更小、细节更糊，画面文字多的视频不建议调。" },
+    "sheetCells": {
+      "type": "number",
+      "label": "分镜图格数",
+      "group": "分镜图",
+      "description": "默认 20。实测 12 格会答错方向（漏掉动作前因帧），20 格才含完整因果链。想省 token 可以降到 12，但短视频的动作理解会退步。范围 6–28。"
+    },
+    "sheetMaxSec": {
+      "type": "number",
+      "label": "分镜图适用的最长时长（秒）",
+      "group": "分镜图",
+      "description": "默认 60。超过这个时长不做场景扫描，改回原来的均匀抽帧 —— 否则 3 分钟视频变成 9 秒一格，又回到「跳过高潮」。"
+    }
+  }
+}

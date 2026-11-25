@@ -1,0 +1,14 @@
+{
+  "id": "finish-merge",
+  "name": "省token·合并收尾",
+  "version": "1.0.1",
+  "apiVersion": 1,
+  "category": "utility",
+  "description": "提示词补丁：让模型把整轮话合并到一次 send_message，发完带 end:true，不再为收尾单独调 finish。它只改模型习惯，本身不减少 API 调用；真正把“发完就结束”落地的是 reply-auto-end（A2），没有 A2 时 end:true 不会结束循环，仍会多打一轮。启用后管理端的收尾理由大多是统一的“本地收尾策略判定”，模型自己的个性化理由会丢失（少数为空）。不想要就在插件页禁用，或删掉本目录。",
+  "author": "本地自建",
+  "enabledByDefault": true,
+  "capabilities": [],
+  "requires": [],
+  "settings": {},
+  "configSchema": {}
+}
